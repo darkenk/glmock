@@ -26,15 +26,13 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+import getopt
+import sys
 import clang.cindex
 import re
 
 cpp_file = []
 hpp_file = []
-
-
-def write(txt):
-    print(txt)
 
 
 def append_mock_method_decl(return_val, function_name, args_decl):
@@ -58,7 +56,7 @@ def get_function_args(node):
     args_decl = ''
     # arguments for function which is called
     args = ''
-    i = 0;
+    i = 0
     for c in node.get_children():
         if c.kind == clang.cindex.CursorKind.PARM_DECL:
             arg_type = str(c.type.spelling)
@@ -150,7 +148,6 @@ def display_node(node, level):
     if clang.cindex.TypeKind.TYPEDEF == node.type.kind:
         level += 1
         t = node.type.get_canonical();
-        #t = node.underlying_typedef_type
         print ('  '*level + 'TK:%s TS:%s') % \
         (t.kind, t.spelling)
         level -= 1
@@ -183,12 +180,11 @@ def create_header_of_cpp_file():
     cpp_file.append('}\n')
 
 
-def create_header_of_hpp_file():
+def create_header_of_hpp_file(header_file):
     hpp_file.append('#ifndef __GLMOCK_HPP__')
     hpp_file.append('#define __GLMOCK_HPP__\n')
     hpp_file.append('#include <gmock/gmock.h>\n')
-    hpp_file.append('#include <GL/glew.h>')
-    hpp_file.append('#include <GL/glu.h>\n')
+    hpp_file.append('#include <' + header_file + '>\n')
     hpp_file.append('class GlMock {')
     hpp_file.append('public:')
     hpp_file.append('    GlMock();')
@@ -200,11 +196,57 @@ def create_end_of_hpp_file():
     hpp_file.append('#endif /* __GLMOCK_HPP__ */')
 
 
+def usage():
+    print('-file=filename \t file to parse. default /usr/include/GL/glew.h')
+    print('-include=filename \t include in glmock.cpp. default GL/glew.h')
+
+
+def read_defines_from_glew(glew_location):
+    f = open(glew_location, 'r')
+    defines = []
+    for line in f:
+        if line.startswith('#ifndef GL_') and \
+                False == line.startswith('#ifndef GL_VERSION'):
+            line = line.replace('#ifndef GL_', '-DGL_')
+            line = line.replace('\n', '=1')
+            defines.append(line)
+    return defines
+
+
 def __main__():
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "hf:i:", ["help", "file=", "include="])
+    except getopt.GetoptError as err:
+        print str(err)
+        usage()
+        sys.exit(2)
+    file_to_parse = '/usr/include/GL/glew.h'
+    header_file = None
+    for o, a in opts:
+        if o in ("-h", "--help"):
+            usage()
+            sys.exit()
+        elif o in ("-f", "--file"):
+            file_to_parse = a
+        elif o in("-i", "--include"):
+            header_file = a
+        else:
+            assert False, "unhandled option"
+
+    if header_file is None:
+        header_file = 'GL' + file_to_parse.split('GL', 1)[1]
+
+    print ('Using header file: ' + header_file)
+    print ('Parsing file: ' + file_to_parse)
     create_header_of_cpp_file()
-    create_header_of_hpp_file()
+    create_header_of_hpp_file(header_file)
+
+    defines = []
+    if file_to_parse.endswith('glew.h'):
+        defines = read_defines_from_glew(file_to_parse)
+    print defines
     index = clang.cindex.Index.create()
-    tu = index.parse('/usr/include/GL/glew.h', ['-DGL_GLEXT_PROTOTYPES'])
+    tu = index.parse(file_to_parse, defines)
     traverse(tu.cursor, 0)
     create_end_of_hpp_file()
     write_to_file('glmock.cpp', cpp_file)

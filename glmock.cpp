@@ -1,23 +1,32 @@
 #include "glmock.hpp"
 #include <pthread.h>
+#include <mutex>
 #include <map>
 
-std::map<pthread_t, GlMock* > gMap;
+static std::map<pthread_t, GlMock* > gMap;
+static std::mutex gMutex;
 
 GlMock::GlMock()
 {
-    pthread_t id = pthread_self();
-    gMap.insert(std::pair<pthread_t, GlMock* >(id, this));
+    std::lock_guard<std::mutex> lck (gMutex);
+    gMap.insert(std::pair<pthread_t, GlMock* >(pthread_self(), this));
 }
 
 GlMock::~GlMock()
 {
+    std::lock_guard<std::mutex> lck (gMutex);
     gMap.erase(pthread_self());
 }
 
 static GlMock* getGlMock()
 {
-    return gMap.at(pthread_self());
+    std::lock_guard<std::mutex> lck (gMutex);
+    auto it = gMap.find(pthread_self());
+    if (it == gMap.end()) {
+        std::cerr << "Initialize GlMock first" << std::endl;
+        std::abort();
+    }
+    return it->second;
 }
 
 void glAccum(GLenum op, GLfloat value)
@@ -3273,6 +3282,72 @@ void  mockgl_MinSampleShading(GLclampf value)
     return getGlMock()->gl_MinSampleShading(value);
 }
 PFNGLMINSAMPLESHADINGPROC __glewMinSampleShading = mockgl_MinSampleShading;
+
+void  mockgl_BindBufferARB(GLenum target, GLuint buffer)
+{
+    return getGlMock()->gl_BindBufferARB(target, buffer);
+}
+PFNGLBINDBUFFERARBPROC __glewBindBufferARB = mockgl_BindBufferARB;
+
+void  mockgl_BufferDataARB(GLenum target, GLsizeiptrARB size, const GLvoid * data, GLenum usage)
+{
+    return getGlMock()->gl_BufferDataARB(target, size, data, usage);
+}
+PFNGLBUFFERDATAARBPROC __glewBufferDataARB = mockgl_BufferDataARB;
+
+void  mockgl_BufferSubDataARB(GLenum target, GLintptrARB offset, GLsizeiptrARB size, const GLvoid * data)
+{
+    return getGlMock()->gl_BufferSubDataARB(target, offset, size, data);
+}
+PFNGLBUFFERSUBDATAARBPROC __glewBufferSubDataARB = mockgl_BufferSubDataARB;
+
+void  mockgl_DeleteBuffersARB(GLsizei n, const GLuint * buffers)
+{
+    return getGlMock()->gl_DeleteBuffersARB(n, buffers);
+}
+PFNGLDELETEBUFFERSARBPROC __glewDeleteBuffersARB = mockgl_DeleteBuffersARB;
+
+void  mockgl_GenBuffersARB(GLsizei n, GLuint * buffers)
+{
+    return getGlMock()->gl_GenBuffersARB(n, buffers);
+}
+PFNGLGENBUFFERSARBPROC __glewGenBuffersARB = mockgl_GenBuffersARB;
+
+void  mockgl_GetBufferParameterivARB(GLenum target, GLenum pname, GLint * params)
+{
+    return getGlMock()->gl_GetBufferParameterivARB(target, pname, params);
+}
+PFNGLGETBUFFERPARAMETERIVARBPROC __glewGetBufferParameterivARB = mockgl_GetBufferParameterivARB;
+
+void  mockgl_GetBufferPointervARB(GLenum target, GLenum pname, GLvoid ** params)
+{
+    return getGlMock()->gl_GetBufferPointervARB(target, pname, params);
+}
+PFNGLGETBUFFERPOINTERVARBPROC __glewGetBufferPointervARB = mockgl_GetBufferPointervARB;
+
+void  mockgl_GetBufferSubDataARB(GLenum target, GLintptrARB offset, GLsizeiptrARB size, GLvoid * data)
+{
+    return getGlMock()->gl_GetBufferSubDataARB(target, offset, size, data);
+}
+PFNGLGETBUFFERSUBDATAARBPROC __glewGetBufferSubDataARB = mockgl_GetBufferSubDataARB;
+
+unsigned char  mockgl_IsBufferARB(GLuint buffer)
+{
+    return getGlMock()->gl_IsBufferARB(buffer);
+}
+PFNGLISBUFFERARBPROC __glewIsBufferARB = mockgl_IsBufferARB;
+
+void * mockgl_MapBufferARB(GLenum target, GLenum access)
+{
+    return getGlMock()->gl_MapBufferARB(target, access);
+}
+PFNGLMAPBUFFERARBPROC __glewMapBufferARB = mockgl_MapBufferARB;
+
+unsigned char  mockgl_UnmapBufferARB(GLenum target)
+{
+    return getGlMock()->gl_UnmapBufferARB(target);
+}
+PFNGLUNMAPBUFFERARBPROC __glewUnmapBufferARB = mockgl_UnmapBufferARB;
 
 GLboolean glewIsSupported(const char * name)
 {

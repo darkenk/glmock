@@ -163,20 +163,29 @@ def display_node(node, level):
 def create_header_of_cpp_file():
     cpp_file.append('#include "glmock.hpp"')
     cpp_file.append('#include <pthread.h>')
-    cpp_file.append('#include <map>')
-    cpp_file.append('\nstd::map<pthread_t, GlMock* > gMap;\n')
+    cpp_file.append('#include <mutex>')
+    cpp_file.append('#include <map>\n')
+    cpp_file.append('static std::map<pthread_t, GlMock* > gMap;')
+    cpp_file.append('static std::mutex gMutex;\n')
     cpp_file.append('GlMock::GlMock()')
     cpp_file.append('{')
-    cpp_file.append('    pthread_t id = pthread_self();')
-    cpp_file.append('    gMap.insert(std::pair<pthread_t, GlMock* >(id, this));')
+    cpp_file.append('    std::lock_guard<std::mutex> lck (gMutex);')
+    cpp_file.append('    gMap.insert(std::pair<pthread_t, GlMock* >(pthread_self(), this));')
     cpp_file.append('}\n')
     cpp_file.append('GlMock::~GlMock()')
     cpp_file.append('{')
+    cpp_file.append('    std::lock_guard<std::mutex> lck (gMutex);')
     cpp_file.append('    gMap.erase(pthread_self());')
     cpp_file.append('}\n')
     cpp_file.append('static GlMock* getGlMock()')
     cpp_file.append('{')
-    cpp_file.append('    return gMap.at(pthread_self());')
+    cpp_file.append('    std::lock_guard<std::mutex> lck (gMutex);')
+    cpp_file.append('    auto it = gMap.find(pthread_self());')
+    cpp_file.append('    if (it == gMap.end()) {')
+    cpp_file.append('        std::cerr << "Initialize GlMock first" << std::endl;')
+    cpp_file.append('        std::abort();')
+    cpp_file.append('    }')
+    cpp_file.append('    return it->second;')
     cpp_file.append('}\n')
 
 
@@ -206,7 +215,8 @@ def read_defines_from_glew(glew_location):
     defines = []
     for line in f:
         if line.startswith('#ifndef GL_') and \
-                False == line.startswith('#ifndef GL_VERSION'):
+                False == line.startswith('#ifndef GL_VERSION') and \
+                False == line.startswith('#ifndef GL_ARB_vertex_buffer_object'):
             line = line.replace('#ifndef GL_', '-DGL_')
             line = line.replace('\n', '=1')
             defines.append(line)

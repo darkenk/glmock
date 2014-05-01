@@ -682,6 +682,17 @@ public:
     MOCK_METHOD5( gl_BlendFuncSeparatei, void  (GLuint buf, GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha) );
     MOCK_METHOD3( gl_BlendFunci, void  (GLuint buf, GLenum src, GLenum dst) );
     MOCK_METHOD1( gl_MinSampleShading, void  (GLclampf value) );
+    MOCK_METHOD2( gl_BindBufferARB, void  (GLenum target, GLuint buffer) );
+    MOCK_METHOD4( gl_BufferDataARB, void  (GLenum target, GLsizeiptrARB size, const GLvoid * data, GLenum usage) );
+    MOCK_METHOD4( gl_BufferSubDataARB, void  (GLenum target, GLintptrARB offset, GLsizeiptrARB size, const GLvoid * data) );
+    MOCK_METHOD2( gl_DeleteBuffersARB, void  (GLsizei n, const GLuint * buffers) );
+    MOCK_METHOD2( gl_GenBuffersARB, void  (GLsizei n, GLuint * buffers) );
+    MOCK_METHOD3( gl_GetBufferParameterivARB, void  (GLenum target, GLenum pname, GLint * params) );
+    MOCK_METHOD3( gl_GetBufferPointervARB, void  (GLenum target, GLenum pname, GLvoid ** params) );
+    MOCK_METHOD4( gl_GetBufferSubDataARB, void  (GLenum target, GLintptrARB offset, GLsizeiptrARB size, GLvoid * data) );
+    MOCK_METHOD1( gl_IsBufferARB, unsigned char  (GLuint buffer) );
+    MOCK_METHOD2( gl_MapBufferARB, void * (GLenum target, GLenum access) );
+    MOCK_METHOD1( gl_UnmapBufferARB, unsigned char  (GLenum target) );
     MOCK_METHOD1( glew_IsSupported, GLboolean (const char * name) );
     MOCK_METHOD1( glew_GetExtension, GLboolean (const char * name) );
     MOCK_METHOD1( glew_GetErrorString, const GLubyte * (GLenum error) );

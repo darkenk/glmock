@@ -1,5 +1,6 @@
 #!/usr/bin/python
 # Copyright (C) 2014, Dariusz Kluska <darkenk@gmail.com>
+# Copyright (C) 2014, Sebastian Gozdz <ssabuss@gmail.com>
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -47,7 +48,7 @@ def append_mock_method_decl(return_val, function_name, args_decl):
 def append_function_impl(return_val, mock_function_name, function_name, args_decl, args):
     cpp_file.append(return_val + ' ' + function_name + '(' + args_decl + ')')
     cpp_file.append('{')
-    cpp_file.append(' '*4 + 'return getGlMock()->' + mock_function_name + '(' + args + ');')
+    cpp_file.append(' '*4 + 'return getMock()->' + mock_function_name + '(' + args + ');')
     cpp_file.append('}')
 
 
@@ -160,49 +161,52 @@ def display_node(node, level):
         display_node(c, level)
         level -= 1
 
-def create_header_of_cpp_file():
-    cpp_file.append('#include "glmock.hpp"')
+def create_header_of_cpp_file(file_name,class_name):
+    cpp_file.append('#include "'+file_name+'.hpp"')
     cpp_file.append('#include <pthread.h>')
-    cpp_file.append('#include <mutex>')
     cpp_file.append('#include <map>\n')
-    cpp_file.append('static std::map<pthread_t, GlMock* > gMap;')
-    cpp_file.append('static std::mutex gMutex;\n')
-    cpp_file.append('GlMock::GlMock()')
+    cpp_file.append('static std::map<pthread_t, '+class_name+'* > gMap;')
+    cpp_file.append('static pthread_mutex_t gMutex = PTHREAD_MUTEX_INITIALIZER;\n')
+    cpp_file.append(class_name+'::'+class_name+'()')
     cpp_file.append('{')
-    cpp_file.append('    std::lock_guard<std::mutex> lck (gMutex);')
-    cpp_file.append('    gMap.insert(std::pair<pthread_t, GlMock* >(pthread_self(), this));')
+    cpp_file.append('    pthread_mutex_lock(&gMutex);')
+    cpp_file.append('    gMap.insert(std::pair<pthread_t, '+class_name+'* >(pthread_self(), this));')
+    cpp_file.append('    pthread_mutex_unlock(&gMutex);')
     cpp_file.append('}\n')
-    cpp_file.append('GlMock::~GlMock()')
+    cpp_file.append(class_name+'::~'+class_name+'()')
     cpp_file.append('{')
-    cpp_file.append('    std::lock_guard<std::mutex> lck (gMutex);')
+    cpp_file.append('    pthread_mutex_lock(&gMutex);')
     cpp_file.append('    gMap.erase(pthread_self());')
+    cpp_file.append('    pthread_mutex_unlock(&gMutex);')
     cpp_file.append('}\n')
-    cpp_file.append('static GlMock* getGlMock()')
+    cpp_file.append('static '+class_name+'* getMock()')
     cpp_file.append('{')
-    cpp_file.append('    std::lock_guard<std::mutex> lck (gMutex);')
-    cpp_file.append('    auto it = gMap.find(pthread_self());')
+    cpp_file.append('    pthread_mutex_lock(&gMutex);')
+    cpp_file.append('    std::map<pthread_t, '+class_name+'*>::iterator it = gMap.find(pthread_self());')
     cpp_file.append('    if (it == gMap.end()) {')
-    cpp_file.append('        std::cerr << "Initialize GlMock first" << std::endl;')
+    cpp_file.append('        std::cerr << "Initialize Mock first" << std::endl;')
+    cpp_file.append('        pthread_mutex_unlock(&gMutex);')
     cpp_file.append('        std::abort();')
     cpp_file.append('    }')
+    cpp_file.append('    pthread_mutex_unlock(&gMutex);')
     cpp_file.append('    return it->second;')
     cpp_file.append('}\n')
 
 
-def create_header_of_hpp_file(header_file):
-    hpp_file.append('#ifndef __GLMOCK_HPP__')
-    hpp_file.append('#define __GLMOCK_HPP__\n')
+def create_header_of_hpp_file(file_name, class_name, header_file):
+    hpp_file.append('#ifndef __'+file_name.upper()+'_HPP__')
+    hpp_file.append('#define __'+file_name.upper()+'_HPP__\n')
     hpp_file.append('#include <gmock/gmock.h>\n')
     hpp_file.append('#include <' + header_file + '>\n')
-    hpp_file.append('class GlMock {')
+    hpp_file.append('class '+class_name+' {')
     hpp_file.append('public:')
-    hpp_file.append('    GlMock();')
-    hpp_file.append('    ~GlMock();')
+    hpp_file.append('    '+class_name+'();')
+    hpp_file.append('    ~'+class_name+'();')
 
 
-def create_end_of_hpp_file():
+def create_end_of_hpp_file(file_name):
     hpp_file.append('};')
-    hpp_file.append('#endif /* __GLMOCK_HPP__ */')
+    hpp_file.append('#endif /* __'+file_name.upper()+'_HPP__ */')
 
 
 def usage():
@@ -225,13 +229,15 @@ def read_defines_from_glew(glew_location):
 
 def __main__():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hf:i:", ["help", "file=", "include="])
+        opts, args = getopt.getopt(sys.argv[1:], "hf:i:o:c:", ["help", "file=", "include=", "output=", "class="])
     except getopt.GetoptError as err:
         print str(err)
         usage()
         sys.exit(2)
     file_to_parse = '/usr/include/GL/glew.h'
     header_file = None
+    output_file_name = 'glmock'
+    class_name = 'GLMock'
     for o, a in opts:
         if o in ("-h", "--help"):
             usage()
@@ -240,6 +246,10 @@ def __main__():
             file_to_parse = a
         elif o in("-i", "--include"):
             header_file = a
+        elif o in("-o", "--output"):
+            output_file_name = a
+        elif o in("-c", "--class"):
+            class_name = a
         else:
             assert False, "unhandled option"
 
@@ -248,8 +258,10 @@ def __main__():
 
     print ('Using header file: ' + header_file)
     print ('Parsing file: ' + file_to_parse)
-    create_header_of_cpp_file()
-    create_header_of_hpp_file(header_file)
+    print ('Output files: ' + output_file_name + '.(cpp/hpp)')
+    print ('Class name: ' + class_name)
+    create_header_of_cpp_file(output_file_name,class_name)
+    create_header_of_hpp_file(output_file_name, class_name, header_file)
 
     defines = []
     if file_to_parse.endswith('glew.h'):
@@ -258,9 +270,9 @@ def __main__():
     index = clang.cindex.Index.create()
     tu = index.parse(file_to_parse, defines)
     traverse(tu.cursor, 0)
-    create_end_of_hpp_file()
-    write_to_file('glmock.cpp', cpp_file)
-    write_to_file('glmock.hpp', hpp_file)
+    create_end_of_hpp_file(output_file_name)
+    write_to_file(output_file_name+'.cpp', cpp_file)
+    write_to_file(output_file_name+'.hpp', hpp_file)
 
 
 __main__()

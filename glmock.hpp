@@ -5,10 +5,10 @@
 
 #include <GL/glew.h>
 
-class GlMock {
+class GLMock {
 public:
-    GlMock();
-    ~GlMock();
+    GLMock();
+    ~GLMock();
     MOCK_METHOD2( gl_Accum, void (GLenum op, GLfloat value) );
     MOCK_METHOD2( gl_AlphaFunc, void (GLenum func, GLclampf ref) );
     MOCK_METHOD3( gl_AreTexturesResident, GLboolean (GLsizei n, const GLuint * textures, GLboolean * residences) );
@@ -457,8 +457,8 @@ public:
     MOCK_METHOD1( gl_FogCoorddv, void  (const GLdouble * coord) );
     MOCK_METHOD1( gl_FogCoordf, void  (GLfloat coord) );
     MOCK_METHOD1( gl_FogCoordfv, void  (const GLfloat * coord) );
-    MOCK_METHOD4( gl_MultiDrawArrays, void  (GLenum mode, GLint * first, GLsizei * count, GLsizei primcount) );
-    MOCK_METHOD5( gl_MultiDrawElements, void  (GLenum mode, GLsizei * count, GLenum type, const GLvoid ** indices, GLsizei primcount) );
+    MOCK_METHOD4( gl_MultiDrawArrays, void  (GLenum mode, const GLint * first, const GLsizei * count, GLsizei drawcount) );
+    MOCK_METHOD5( gl_MultiDrawElements, void  (GLenum mode, const GLsizei * count, GLenum type, const GLvoid ** indices, GLsizei drawcount) );
     MOCK_METHOD2( gl_PointParameterf, void  (GLenum pname, GLfloat param) );
     MOCK_METHOD2( gl_PointParameterfv, void  (GLenum pname, const GLfloat * params) );
     MOCK_METHOD2( gl_PointParameteri, void  (GLenum pname, GLint param) );
@@ -693,6 +693,7 @@ public:
     MOCK_METHOD1( gl_IsBufferARB, unsigned char  (GLuint buffer) );
     MOCK_METHOD2( gl_MapBufferARB, void * (GLenum target, GLenum access) );
     MOCK_METHOD1( gl_UnmapBufferARB, unsigned char  (GLenum target) );
+    MOCK_METHOD0( glew_Init, GLenum () );
     MOCK_METHOD1( glew_IsSupported, GLboolean (const char * name) );
     MOCK_METHOD1( glew_GetExtension, GLboolean (const char * name) );
     MOCK_METHOD1( glew_GetErrorString, const GLubyte * (GLenum error) );
